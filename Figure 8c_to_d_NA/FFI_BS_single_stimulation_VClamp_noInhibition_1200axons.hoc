@@ -1,0 +1,83 @@
+objref PC, PCvode
+PC= new ParallelContext()
+PC.nthread(256)
+dt=.1
+//PC.runworker()
+
+RNGseed=31123
+number_of_axon=2500 //2500 axons, producing a connection probability of 2% (Scharfman, 2009)
+input_sample_size = 50 //how many axons each GC sample from
+number_of_input=25 //each axon produce 75 inputs that are distributed in time
+Activeaxon_number=1200//total number of active axons
+
+xopen("GC_BC_template_240520.hoc")
+xopen("Input_gen_single_240110.hoc")
+
+
+
+
+scale_factor = 0.1 //the scale factor for EPSGs in both BCs and GCs
+
+print "GC_connection_Poisson_excitation_240520_mpi.hoc"
+xopen("GC_connection_Poisson_excitation_240520_mpi.hoc")
+
+
+print "load BC_excitatory_connection_240520_mpi.hoc"
+xopen("BC_excitatory_connection_240520_mpi.hoc")
+
+print "load GC-GC_inhibitory_synapse_240520.hoc"
+xopen("BC-GC_inhibitory_synapse_240520.hoc")
+changeBC_synapse_weight(GC_IPSG_weight*0)  //interneurons are under voltage-clamp. Consequently, IPSGs does not contribute.
+
+print "load_RegisterAPs.hoc"
+xopen("RegisterAPs.hoc")
+
+print "load simulate.hoc"
+xopen("simulate.hoc")
+
+print "load Record_GC_VC_current_no_inhibition_240523.hoc"
+xopen ("Record_GC_VC_current_no_inhibition_240523.hoc")
+
+
+make_output_raster_for_origin()
+for a100=0, BC_number-1{access BC[a100].soma
+					    e_pas=-51
+						g_pas= 1/20000  //based on the time constant of Iulia's measurement 240124
+						//diam= 5.6419*1.4 //Adjust so that the input resistance of the interneuron is appriximal one third of that of the excitatory cell
+						//L=5.6419*1.4
+						}
+//run the simulation with FFI
+RegisterAP()
+simulate()
+strdef file_name
+writeGC_I()
+
+writeBC_I()
+
+objref meanPSP
+meanPSP=new Vector(GC_I[0].size, 0)
+for a=0, 499 {meanPSP.add(GC_I[a])}
+meanPSP.div(500)
+
+strdef file_name
+objref IO
+IO=new File()
+sprint (file_name, "%s%g%s", "GC_VC_meanI_noInhibition_", Activeaxon_number,"axon.txt")
+IO.wopen(file_name)
+for a=0, meanPSP.size-1 {IO.printf("%f\n", meanPSP.x[a])}
+IO.close()
+						 
+
+meanPSP=new Vector(GC_I[0].size, 0)
+for a=0, BC_number-1 {meanPSP.add(BC_I[a])}
+meanPSP.div(BC_number)
+
+objref IO
+IO=new File()
+sprint(file_name, "%s%g%s", "BC_VC_meanI_noInhibition_", Activeaxon_number,"axon.txt")
+IO.wopen(file_name)
+for a=0, meanPSP.size-1 {IO.printf("%f\n", meanPSP.x[a])}
+IO.close()
+
+
+PC.done()

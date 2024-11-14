@@ -1,0 +1,314 @@
+celsius = 37
+
+/*
+GC_e_weight=0
+BC_e_weight=0
+time_CV= 0.3 //coefficient of variation of input timing in a normal distribution
+n_synapse=100
+ISI = 1  //mean interval between inputs during Poisson train
+
+objref rec_Ex[n_synapse], rec_in, rec_Ex_sum 
+*/
+
+//build GC
+   Ek_principalneuron = -90
+   gna_principalneuron = 0.01
+   shift_principalneuron = 13
+   ena_principalneuron = 55
+   gkdr_principalneuron = 0.015
+   gka_principalneuron = 0
+   gkm_principalneuron = 0
+   ARes_principalneuron = 194		// ohm cm	- axial resistance
+   MCap_principalneuron = 1.01	// uF/cm^2	- membrane capacitance
+   Rm_principalneuron = 31000//31000		// ohm cm^2 	- membrane resistance  
+   Vrest_principalneuron = -80
+
+
+
+begintemplate excitatory_cell			// template of a excitatory neuron
+
+public  soma, dend
+
+external Ek_principalneuron, ARes_principalneuron,MCap_principalneuron,Rm_principalneuron, Vrest_principalneuron,gna_principalneuron, shift_principalneuron, ena_principalneuron, gkdr_principalneuron,gka_principalneuron, gkm_principalneuron
+
+
+objref pre_list, CC		
+
+create soma, dend
+proc topol() { local i
+			   connect dend(0), soma(0)
+			   basic_shape()
+					}
+					
+proc basic_shape() {
+  soma {pt3dclear() pt3dadd(0, 0, 0, 1) pt3dadd(15, 0, 0, 1)}
+  dend {pt3dclear() pt3dadd(0, 0, 0, 1) pt3dadd(-44, 0, 0, 1)}
+}		
+
+
+
+proc init() 	{pre_list = new List()
+				 topol()
+				 soma {L = 5.6419*1 diam = 5.6419*1 
+					   insert na3  
+					   gbar_na3 = gna_principalneuron*10
+					   sh_na3 = shift_principalneuron/10
+					   ena = ena_principalneuron
+					   insert kdr
+					   gkdrbar_kdr = gkdr_principalneuron*5
+					   sh_kdr = shift_principalneuron/2
+					   ek = Ek_principalneuron
+					   /*
+					   insert kap
+					   gkabar_kap = gka_principalneuron
+					   sh_kap = shift_principalneuron
+					   insert km
+					   gbar_km = gkm_principalneuron
+					   sh_km=shift_principalneuron
+					   */
+				 
+				 }
+
+				 dend {L = 210  diam = 1  
+					   insert kdr
+					   gkdrbar_kdr = gkdr_principalneuron*5
+					   sh_kdr = shift_principalneuron/2
+					   ek = Ek_principalneuron
+					   /*
+					   insert kap
+					   gkabar_kap = gka_principalneuron
+					   sh_kap = shift_principalneuron
+					   insert km
+					   gbar_km = gkm_principalneuron
+					   sh_km=shift_principalneuron
+					   */
+					  }
+				 
+
+				 forall {insert pas 
+						  e_pas=Vrest_principalneuron 
+						  g_pas=1/Rm_principalneuron 
+						  cm =  MCap_principalneuron
+						  Ra =  ARes_principalneuron
+						  }	
+
+
+	  
+ 
+		}
+endtemplate excitatory_cell
+debug_mode=1
+
+
+/* Sets nseg in each section to an odd value
+   so that its segments are no longer than 
+     d_lambda x the AC length constant
+   at frequency freq in that section.
+
+   Be sure to specify your own Ra and cm before calling geom_nseg()
+
+   To understand why this works, 
+   and the advantages of using an odd value for nseg,
+   see  Hines, M.L. and Carnevale, N.T.
+        NEURON: a tool for neuroscientists.
+        The Neuroscientist 7:123-135, 2001.
+*/
+
+// these are reasonable values for most models
+freq = 1000 //original:100     // Hz, frequency at which AC length constant will be computed
+d_lambda = 0.1 //original:0.1
+
+func lambda_f() { local i, x1, x2, d1, d2, lam
+        if (n3d() < 2) {
+                return 1e5*sqrt(diam/(4*PI*$1*Ra*cm))
+        }
+// above was too inaccurate with large variation in 3d diameter
+// so now we use all 3-d points to get a better approximate lambda
+        x1 = arc3d(0)
+        d1 = diam3d(0)
+        lam = 0
+        for i=1, n3d()-1 {
+                x2 = arc3d(i)
+                d2 = diam3d(i)
+                lam += (x2 - x1)/sqrt(d1 + d2)
+                x1 = x2   d1 = d2
+        }
+        //  length of the section in units of lambda
+        lam *= sqrt(2) * 1e-5*sqrt(4*PI*$1*Ra*cm)
+
+        return L/lam
+}
+
+proc geom_nseg_shared() {
+  area(0.5) // make sure diam reflects 3d points
+  forall { 
+	//if (debug_mode) printf("lambda=%g\n",lambda_f(freq))
+	nseg = int((L/(d_lambda*lambda_f(freq))+0.9)/2)*2 + 1
+  }
+
+}
+		       
+//Define IN
+begintemplate inhibitory_cell				// template of a interneuron
+
+public  soma
+	
+objref pre_list, CC	
+	
+external Ek_principalneuron, ARes_principalneuron,MCap_principalneuron,Rm_principalneuron, Vrest_principalneuron,gna_principalneuron, shift_principalneuron, ena_principalneuron, gkdr_principalneuron,gka_principalneuron, gkm_principalneuron
+
+create soma
+
+proc init() 	{
+   pre_list = new List()
+   soma { 
+	// define geomtry
+	diam= 5.6419*3.05/1.22 //Adjust so that the input resistance of the interneuron is appriximal 75% of that of the excitatory cell
+	L=5.6419*3.05/1.22
+	nseg =1	
+	// define passive parameters
+ 	cm = 1
+    Ra = 100
+	
+	insert naRSIN
+	gbar_naRSIN = gna_principalneuron*3
+	sh_naRSIN = 0
+	ena = ena_principalneuron
+	insert kdr
+	gkdrbar_kdr = gkdr_principalneuron*1
+    sh_kdr = shift_principalneuron/2
+	ek = Ek_principalneuron
+	/*
+	insert kap
+	gkabar_kap = gka_principalneuron
+	sh_kap = shift_principalneuron
+	insert km
+	gbar_km = gkm_principalneuron
+	sh_km=shift_principalneuron
+	*/
+	
+	insert pas 
+	e_pas=-62 
+	g_pas= 1/20000  //based on the time constant of Iulia's measurement 240124
+	 }
+ 
+		}
+endtemplate inhibitory_cell
+
+/*
+objref BC
+BC=new inhibitory_cell()
+objref r
+r=new Vector()
+access BC.soma
+e_pas=-52
+r.record(&v(0.5))
+objref g
+g=new Graph()
+tstop=5000
+
+objref ic
+ic=new IClamp(0.5)
+ic.dur=200
+ic.del=200
+ic.amp=.01
+
+objref g3
+g3=new Graph()
+
+
+
+
+objref GC
+GC=new excitatory_cell()
+objref r1
+r1=new Vector()
+
+
+access GC.soma
+r1.record(&v(0.5))
+objref GCic
+GCic=new IClamp(0.5)
+GCic.dur=200
+GCic.del=200
+GCic.amp=.01
+run()
+r1.plot(g)
+r.plot(g3)
+
+
+*/
+
+/*
+//the input resistance of BCs has been adjusted to 0.5 of that of GCs (by changing somatic L and diam) with the following code
+
+objref PC, PCvode
+PC= new ParallelContext()
+PC.nthread(2048)
+
+GC_number=100
+xopen("GC_BC_template_240124.hoc")
+objref GC[GC_number], r
+for a=0, GC_number-1 {GC[a]=new excitatory_cell()
+					  access GC[0].soma
+					  geom_nseg_shared()
+
+
+					 }
+
+r=new Random()
+
+
+
+
+objref BC
+dt=0.1
+objref GC_IC, BC_IC
+objref GCV, g, BCV, GCdV
+
+r100=r.discunif(0, GC_number-1)
+access GC[r100].soma
+GC_IC=new IClamp(0.5)
+GC_IC.dur=1000
+GC_IC.amp=-0.01
+GC_IC.del=500
+GCV=new Vector()
+GCV.record(&v(0.5))
+access GC[r100].dend
+GCdV=new Vector()
+GCdV.record(&v(0.5))
+
+
+BC=new inhibitory_cell()
+access BC.soma
+BC_IC=new IClamp(0.5)
+BC_IC.dur=1000
+BC_IC.amp=-.01
+BC_IC.del=500
+
+BCV=new Vector()
+access BC.soma
+BCV.record(&v(0.9))
+
+
+
+
+g= new Graph()
+
+tstop=1000
+finitialize(-80)
+
+dt=0.1
+for a=0, tstop/dt {print a
+fadvance()}
+
+
+GCV.plot(g)
+BCV.plot(g)
+
+print BCV.x[10000], "<---------------------------->  ", GCV.x[10000], "<---GC dendrite---->", GCdV.x[10000]
+
+PC.done()
+
+*/
+
