@@ -1,0 +1,146 @@
+correlation=0
+euclidean=0
+Dcosine = 0
+
+proc make_rank() {local a100, b100, count, count1, total, c100, d100, e100
+			      if ($o1.size!=$o2.size) {print "wrong"}
+			 
+			      for a100=0, $o1.size-1{count=0
+									count1=0
+									for b100=0, $o1.size-1 {if ($o1.x[a100]>=$o1.x[b100]) {count=count+1}}
+									
+									for b100=0, $o1.size-1 {if ($o1.x[a100]==$o1.x[b100]) {count1=count1+1}}
+									total=0
+									for b100=0, count1-1 {total=total+(count-b100)}
+									//print total, "  ", total/count1
+									
+									$o2.x[a100]=total/count1
+									}
+								
+									}
+									
+
+	
+	
+
+
+proc spearman_rho() {local a100 localobj rank1, rank2  
+					 rho=-100
+					 if ($o1.size==$o2.size) {rank1=new Vector($o1.size)
+											 rank2=new Vector($o2.size)
+											 make_rank($o1, rank1)
+											 make_rank($o2, rank2)
+											 total=0
+											 for a100=0, rank1.size-1 {total=(rank1.x[a100]-rank2.x[a100])*(rank1.x[a100]-rank2.x[a100])+total}
+											 rho=1-6*total/((rank1.size-1)*(rank1.size*rank1.size-1))}
+					correlation=rho
+					}
+					
+proc spearman_rho_with_tie(){local a100, top, bottom1, bottom2, meanRank1, meanRank2 localobj rank1, rank2 				 
+											 rho=-100
+											 rank1=new Vector($o1.size)
+											 rank2=new Vector($o2.size)
+											 make_rank($o1, rank1)
+											 make_rank($o2, rank2)
+											 meanRank1=rank1.mean()
+											 meanRank2=rank2.mean()
+											 top=0
+											 bottom1=0
+											 bottom2=0
+											 for a100=0, rank1.size-1 {top=top+(rank1.x[a100]-meanRank1)*(rank2.x[a100]-meanRank2)
+																	   bottom1=bottom1+(rank1.x[a100]-meanRank1)*(rank1.x[a100]-meanRank1)
+																	   bottom2=bottom2+(rank2.x[a100]-meanRank2)*(rank2.x[a100]-meanRank2)
+											 }
+											 if (bottom1*bottom2!=0) {rho=top/sqrt(bottom1*bottom2)}
+											 if (bottom1*bottom2==0) {rho=0}
+							print "rho = ", rho
+							correlation=rho
+							}
+					
+proc Pearson() {local a200, top, bottomx1, bottomx2
+				correlation=0
+				if ($o1.size!=$o2.size) {correlation=-1000}
+				x1mean=$o1.mean()
+				x2mean=$o2.mean()
+				top=0
+				bottomx1=0
+				bottomx2=0
+				for a200=0, $o1.size-1 {top=top+($o1.x[a200]-x1mean)*($o2.x[a200]-x2mean)
+										bottomx1=bottomx1+($o1.x[a200]-x1mean)*($o1.x[a200]-x1mean)
+										bottomx2=bottomx2+($o2.x[a200]-x2mean)*($o2.x[a200]-x2mean)}
+				if ((sqrt(bottomx1)*sqrt(bottomx2))==0) {correlation=0}
+				if ((sqrt(bottomx1)*sqrt(bottomx2))!=0){correlation = top/(sqrt(bottomx1)*sqrt(bottomx2))}
+				
+				
+				print "Pearson's r = ", correlation
+				}
+
+
+
+proc correlation_test(){local a200 localobj O_pattern1, O_pattern2
+						correlation = 0
+						if ($o1.size!=$o2.size) {correlation=-1000}
+						/*
+						count100=0
+						//find the number of granule cells that are silent in both input patterns, represented by a value of 0 in the vector
+						for a200=0, $o1.size-1 {if(($o1.x[a200]==0) && ($o2.x[a200]==0)) {count100=count100+1}}
+						
+						//make two vectors to store granule cells that are active in either input patterns
+						O_pattern1= new Vector(GC_number-count100, -1000)
+						O_pattern2= new Vector(GC_number-count100, -1000)
+						
+						
+						//print "ttt"
+						//copy the AP number of cells that are active in either input pattern to these two new vectors
+						count100=0
+						for a200=0, $o1.size-1{if (($o1.x[a200]!=0)||($o2.x[a200]!=0)) {O_pattern1.x[count100]=$o1.x[a200]
+																						O_pattern2.x[count100]=$o2.x[a200]
+																						//print O_pattern1.x[count100],"----------------------", O_pattern2.x[count100]
+																						count100=count100+1}
+																						}
+																						
+						//check whether there are empty (unfilled) vector points
+						for a200=0, O_pattern1.size-1{if ((O_pattern1.x[a200]==-1000)||(O_pattern2.x[a200]==-1000)) {correlation=-1000}}
+						
+						//print "dddd"
+						for a200=0, $o1.size-1 {print $o1.x[a200], "----------------------", $o2.x[a200]}
+						//print "\n"
+						for a200=0, O_pattern1.size-1 {print O_pattern1.x[a200],"----------------------", O_pattern2.x[a200]}
+						
+						
+						if (correlation!=-1000) {Pearson(O_pattern1, O_pattern2)}
+						
+						*/
+						if (correlation!=-1000) {spearman_rho_with_tie($o1, $o2)}
+						
+						}
+proc Euclidean_distance() {local a200, top, bottomx1, bottomx2
+						   euclidean=0
+				           if ($o1.size!=$o2.size) {euclidean=-1000}		
+						   for a200=0, $o1.size-1 {euclidean=($o1.x[a200]-$o2.x[a200])*($o1.x[a200]-$o2.x[a200])+euclidean}
+						   euclidean=sqrt(euclidean)}
+						   
+//the AP rate contribute to the Euclidean_distance:  			   
+
+
+proc cosine_similarity() {local a200, top, bottomx1, bottomx2
+						Dcosine = 0
+						top=0
+						bottomx1=0
+						bottomx2=0
+						if ($o1.size!=$o2.size) {euclidean=-1000}	
+						for a200=0, $o1.size-1 {top=top+$o1.x[a200]*$o2.x[a200]
+											   bottomx1=bottomx1+$o1.x[a200]*$o1.x[a200]
+											   bottomx2=bottomx2+$o2.x[a200]*$o2.x[a200]
+						}
+						if (sqrt(bottomx1)*sqrt(bottomx2)!=0) {Dcosine = top /(sqrt(bottomx1)*sqrt(bottomx2))}
+						if (sqrt(bottomx1)*sqrt(bottomx2)==0) {Dcosine = -10000}
+						
+						}	
+						
+proc Jaccard_similarity() {local a200, b200, c200
+						   Jaccard=0
+						   c200=0
+						   if ($o1.size!=$o2.size) {Jaccard=-1000}	
+						   for a200=0, $o1.size-1 {if ($o1.x[a200]==$o2.x[a200]) {c200=c200+1}}
+						   Jaccard=c200/($o1.size+$o2.size-c200)}

@@ -1,0 +1,190 @@
+/*
+RNGseed=4321
+number_of_axon=2500 //2500 axons, producing a connection probability of 2% (Scharfman, 2009)
+input_sample_size = 50 //how many axons each GC sample from
+number_of_input=25 //each axon produce 20 inputs that are distributed in time
+Activeaxon_number=250 //total number of active axons
+*/
+
+duration =550 //duration is 400 ms
+
+objref input_time, axon_array[number_of_axon], axon_raster[number_of_axon], make_int, IO
+
+//axon_array is the vector where the timing of inputs in each axon is stored
+//axon_array[axon identity].x[0 to number_of_input] = presynaptic AP time in ms
+delta = 0.5
+
+for a1=0, number_of_axon-1 axon_array[a1]= new Vector(number_of_input, 1000)
+input_time=new Vector(number_of_input,10000)
+
+
+objref rng, rng4
+rng=new Random(RNGseed)
+rng4=new Random(RNGseed*3)
+
+objref master_input_binary //master_input_binary is a vector that defines the AP probability from 0 to 500 ms 
+//the AP probability is a theta modulated gamma input
+master_input_binary = new Vector(duration, 0)
+proc make_master_binary_input() {local ISI, AP_delay, count, a, a100, maximal, a102
+						 
+						  ISI=rng4.discunif(0, 24)
+						  AP_delay=50
+						  AP_delay=AP_delay+rng4.negexp(ISI)
+						  //while (AP_delay<=3) {AP_delay=AP_delay+rng4.negexp(ISI)}
+						  a=0
+						  a102=rng4.normal(50,50*50*delta*delta)
+                          while ((a<=number_of_input-1)&&(AP_delay<=master_input_binary.size-1)) {probability=(cos((AP_delay+a102)/125*PI*2)+1)/2 //the frequency vector (depending on the 10 Hz theta phase) is scaled by 50 Hz
+													  InstFrequency=100
+													  ISI=1000/InstFrequency
+													  a101=rng4.negexp(ISI)
+													  //print InstFrequency
+													  // print AP_delay, "     ", InstFrequency, "  ", a101
+													  AP_delay=AP_delay+a101
+													  //print "AP delay = ", AP_delay
+													  if ((AP_delay<=master_input_binary.size-1)&&(rng4.binomial(1, probability)==1)&&(a101>3)) {master_input_binary.x[AP_delay]=master_input_binary.x[AP_delay]+1
+																					              a=a+1}
+													 //a101 >5 is to add a 5-ms refractory period
+													  //print AP_delay
+						  }
+						  // print "ddd"
+						  /*
+						  maximal = -100
+						  master_input_binary.div(a100)
+						  for a=0, master_input_binary.size-1 {if (master_input_binary.x[a]>=maximal) {maximal=master_input_binary.x[a]}}
+						    master_input_binary.div(maximal)
+						  //print "a100 =", a100
+						  */
+					}
+make_master_binary_input()
+
+/*
+objref IO
+IO=new File()
+IO.wopen("master.txt")
+for a=0, master_input_binary.size-1 {IO.printf("%f\n", master_input_binary.x[a])}
+IO.close()
+*/
+
+objref slave_input_binary //slave_input_binary is a vector that defines the AP probability from 0 to 500 ms 
+//the AP probability is a theta modulated gamma input
+slave_input_binary = new Vector(duration, 0)
+proc make_slave_binary_input() {local ISI, AP_delay, count, a, a100, maximal, a101, a102
+						  slave_input_binary = new Vector(duration, 0)
+						  ISI=rng4.discunif(0, 24)
+						  AP_delay=50
+						  AP_delay=AP_delay+rng4.negexp(ISI)
+						  //while (AP_delay<=3) {AP_delay=AP_delay+rng4.negexp(ISI)}
+						  a=0
+						  a102=rng4.normal(50,50*50*delta*delta)
+                          while ((a<=number_of_input-1)&&(AP_delay<=slave_input_binary.size-1)) {probability=(cos((AP_delay+a102)/125*PI*2)+1)/2 //the frequency vector (depending on the 10 Hz theta phase) is scaled by 50 Hz
+													  InstFrequency=100
+													  ISI=1000/InstFrequency
+													  a101=rng4.negexp(ISI)
+													  //print InstFrequency
+													  // print AP_delay, "     ", InstFrequency, "  ", a101
+													  AP_delay=AP_delay+a101
+													  //print "AP delay = ", AP_delay
+													  if ((AP_delay<=slave_input_binary.size-1)&&(rng4.binomial(1, probability)==1)&&(a101>3)) {slave_input_binary.x[AP_delay]=slave_input_binary.x[AP_delay]+1
+																																	 //print "ddd-", AP_delay
+																					              a=a+1}
+													 
+													  //print AP_delay
+						  }
+						  // print "ddd"
+						  /*
+						  maximal = -100
+						  slave_input_binary.div(a100)
+						  for a=0, slave_input_binary.size-1 {if (slave_input_binary.x[a]>=maximal) {maximal=slave_input_binary.x[a]}}
+						  slave_input_binary.div(maximal)
+						  //print "a100 =", a100
+						  */
+					}
+make_slave_binary_input()
+
+/*
+objref IO
+IO=new File()
+IO.wopen("slave.txt")
+for a=0, slave_input_binary.size-1 {IO.printf("%f\n", slave_input_binary.x[a])}
+IO.close()
+*/
+objref input_buffer
+proc generate_input()  {local r100, a100, b100, c100, threshold,r101 localobj input_buffer
+
+						input_buffer= new Vector(duration,0)
+						r100 = 0
+						threshold=0.4
+						for b100=0, number_of_axon-1  {make_slave_binary_input()
+									//	print "dddddd--"
+									for a100=0, input_buffer.size-1 {r101= master_input_binary.x[a100]*r100+slave_input_binary.x[a100]*(1-r100)
+																	 if (r101>1) {r101=1}
+																	 input_buffer.x[a100]=rng4.binomial(1, r101)
+																	/*r101=rng4.normal(1, 1*1*.5*.5)*r100)
+																	input_buffer.x[a100]=master_input_binary.x[a100]*r101+slave_input_binary.x[a100]*(1-r101)
+																	if (input_buffer.x[a100]>=threshold) {input_buffer.x[a100]=1}
+																	if (input_buffer.x[a100]<threshold) {input_buffer.x[a100]=0}
+																	*/
+									}
+									input_buffer.x[0]=0
+									c100=0
+									for a100=0, input_buffer.size-1 {if ((input_buffer.x[a100]==1)&&(c100<=number_of_input-1)) {axon_array[b100].x[c100]=a100 c100=c100+1}}
+									//for a100=0, input_buffer.size-1 {if ((input_buffer.x[a100]==1)) {c100=c100+1}}
+									
+
+
+/*
+objref IO
+strdef fname
+IO=new File()
+sprint (fname, "%s%g%s", "final", b100, ".txt")
+IO.wopen(fname)
+print fname
+for a=0, slave_input_binary.size-1 {IO.printf("%f\n", input_buffer.x[a])}
+IO.close()	
+*/
+
+											}
+					}
+
+
+
+
+
+strdef title
+objref 		raster[number_of_axon]
+proc make_output_raster_for_origin() {local a1, a2, a3, raster_count 
+						   for a1=0, number_of_axon-1 {raster[a1]=new Vector(duration*1, 0)} //temporal resolution is 1 KHz
+						   for a1=0, number_of_axon-1 {for a2=0, number_of_input-1 {if (axon_array[a1].x[a2]<duration) {raster[a1].x[axon_array[a1].x[a2]*1]=1}
+						    
+							//print a1,"---", axon_array[a1].x[a2]*1
+																	}
+						   
+						   
+																	}
+																  // print a1,"---", axon_array[a1].x[a2]*1
+						   print raster[1].x[0]															//}}}
+						   objref IO
+						   IO = new File()
+						   IO.wopen("list of input.txt")							
+							
+						   sprint (title, "%s", "Time,")
+                           for a1=0, number_of_axon-1 {sprint(title, "%s%s%g%s", title, "axon", a1, ",")}	
+						   IO.printf("%s\n", title)	
+
+						   for raster_count=0, raster[0].size-1 { 
+									   
+									  IO.printf("%g%s", raster_count/1, ",")
+									  for a3=0, number_of_axon-1{
+																 if (raster[a3].x[raster_count]==1) {IO.printf("%g%s", 1, ",")} //a3+1
+																 if (raster[a3].x[raster_count]!=1) {IO.printf("%g%s", 0, ",")}
+									  
+									  }
+									IO.printf("\n")
+										   }
+										   
+										   
+						  IO.close()
+									  
+					}
+					
+			

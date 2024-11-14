@@ -1,0 +1,172 @@
+
+
+
+
+GC_number = number_of_axon * 5
+objref GC_Esyn_matrix[GC_number] //the connection pattern from afferent axons to each GC
+
+//Establish the connection pattern of each GC
+//Randomly select (#input_sample_size) axons for each GC. The specific number of selected axons are stored in the vector (GC_Esyn_matrix[GC_identity].x[]=axon identity). 
+//estabilish_GC_Esyn() is run only once. 
+proc Establish_GC_Esyn() { local b1,b2,GC_identity,c1,c2 localobj buffer_pattern, rng3
+					rng3=new Random(RNGseed)
+					for GC_identity=0, GC_number-1 {GC_Esyn_matrix[GC_identity]=new Vector(input_sample_size, -1000)} //each vector store the identity of the axon that targets the GC
+					
+					for GC_identity=0, GC_number-1 {buffer_pattern=new Vector(number_of_axon,-1000)
+													b1=0
+													while (b1<input_sample_size) {b2= rng3.discunif(0, number_of_axon-1)
+																				  while (buffer_pattern.x[b2]>0) {b2=rng3.discunif(0, number_of_axon-1)}
+																				  buffer_pattern.x[b2]=999								  
+																				  // print b2								  
+															  					  b1=b1+1}
+																				  // print "xxxx"
+													c2=0
+													for c1=0, number_of_axon-1 {if (buffer_pattern.x[c1]>0) {GC_Esyn_matrix[GC_identity].x[c2]=c1 
+																											 c2=c2+1
+																											 //  print c1
+																				}}
+
+													}	
+				  }
+
+
+Establish_GC_Esyn()
+
+
+/*
+//check whether each GC sample from redundant axons
+
+
+
+check1=0
+redundance=0
+for check1=0, GC_number-1{for check2=0, input_sample_size-1 {for check3=check2+1, input_sample_size-1 { if (GC_Esyn_matrix[check1].x[check2]==GC_Esyn_matrix[check1].x[check3]) {redundance=redundance+1}}}}
+print "Redundance in axons that GCs sample from = ", redundance
+
+
+//determine the number of overlap
+overlap=0
+for check1=0, GC_number-1 {for check2=check1+1, GC_number-1 {for check3=0, input_sample_size-1{for check4=0, input_sample_size-1{if (GC_Esyn_matrix[check1].x[check3]==GC_Esyn_matrix[check2].x[check4]) {overlap=overlap+1}}}}
+							print "Overlap in axons that GCs sample from = ", overlap   }
+							
+print "--------------------------------------------------------------------"
+print "Overlap in axons that GCs sample from = ", overlap                                                                                               
+
+*/
+//create GCs
+objref GC[GC_number]
+for a=0, GC_number-1 {GC[a]=new excitatory_cell()
+					  access GC[a].soma
+					  geom_nseg_shared()
+
+
+					 }
+
+
+
+
+
+objref input_pattern, rng2, buffer_pattern
+rng2= new Random(RNGseed)
+input_pattern= new Vector(Activeaxon_number) //input pattern is a vector that points to the axons targeting the cell 
+buffer_pattern=new Vector(number_of_axon,-1000)
+
+
+
+//Randomly select (#Activeaxon_number) axons for activating GCs. The specific number of selected axons are stored in the vector (input_pattern). 
+//choose input is run only once. Afterward, a fraction of choosen inputs are replace with change_input() function.
+objref RN_generator9
+RN_generator9=new Random(RNGseed*9)
+proc choose_input() {local b1, b2, c1, c2 
+					 
+					 for b1=0, number_of_axon-1{axon_array[b1]=new Vector(number_of_input, 1000)}
+					 
+					 generate_input() 
+					 make_output_raster_for_origin()		
+					 
+					 input_pattern= new Vector(Activeaxon_number)
+					 buffer_pattern=new Vector(number_of_axon,-1000)
+					 b1=0
+					 while (b1<Activeaxon_number) {b2= RN_generator9.discunif(0, number_of_axon-1)
+							  while (buffer_pattern.x[b2]>0) {b2=RN_generator9.discunif(0, number_of_axon-1)
+															  }
+							  buffer_pattern.x[b2]=999								  
+							 // print b2								  
+															  
+							  b1=b1+1}
+							  //print "xxxx"
+					 c2=0
+					 for c1=0, number_of_axon-1 { if (buffer_pattern.x[c1]>0) {input_pattern.x[c2]=c1 
+														  c2=c2+1
+														//  print c1
+														  }}
+
+}														  
+				
+				
+
+
+objref check_axon_array[number_of_axon] //check_axon_array is a copy of axon_array. It is used to check whether the values of axon_array change during the execution of the program
+//create a NetStim and a Exp2Syn point process for each synaptic input targeting GCs
+objref GCPreAP[GC_number][input_sample_size][number_of_input], GC_e_syn[GC_number][input_sample_size][number_of_input], GC_e_nc[GC_number][input_sample_size][number_of_input]
+objref GC_NMDA_syn[GC_number][input_sample_size][number_of_input], GC_NMDA_nc[GC_number][input_sample_size][number_of_input]
+
+proc build_GC_synapse() {local a, a1, a2,b1, b2,b3, count, dist, d1 localobj rng3
+						choose_input() 
+
+
+						for aa1=0, number_of_axon-1 {check_axon_array[aa1]=new Vector(axon_array[aa1].size) check_axon_array[aa1].copy(axon_array[aa1])}
+
+rng3= new Random(RNGseed)
+for a=0, GC_number-1 {access GC[a].soma
+					  distance(0, 0.5)
+					  for a1=0, input_sample_size-1{access GC[a].dend
+													d1=rng3.discunif(0,9)
+													while ((distance(d1/10)<=70)||(distance(d1/10)>140)) {d1=rng3.discunif(0,9)}
+													for a2=0, number_of_input-1{GC_e_syn[a][a1][a2]= new Exp2Syn(d1/10)
+																				
+																				GC_e_syn[a][a1][a2].tau1=1
+																				GC_e_syn[a][a1][a2].tau2=5
+																				GC_e_syn[a][a1][a2].e=0
+																				GCPreAP[a][a1][a2]=new NetStimm(d1/10)
+																				GCPreAP[a][a1][a2].number = 1
+																				GCPreAP[a][a1][a2].noise= 0
+																				GCPreAP[a][a1][a2].interval =10
+																				GC_e_nc[a][a1][a2]=new NetCon(GCPreAP[a][a1][a2], GC_e_syn[a][a1][a2], 0, dt*2, 0)
+																				
+																				GC_NMDA_syn[a][a1][a2]=new NMDA(d1/10)
+																				GC_NMDA_syn[a][a1][a2].tau1=3
+																				GC_NMDA_syn[a][a1][a2].tau2= 70 //based on Basu Cell reports 2023
+																				GC_NMDA_syn[a][a1][a2].e=0
+																				GC_NMDA_nc[a][a1][a2]=new NetCon(GCPreAP[a][a1][a2], GC_NMDA_syn[a][a1][a2], 0, dt*2, 0)
+																				
+																				}}}
+
+
+
+
+//assign the timing to each NetStimm in GCPreAP[][][].start
+for b1=0, GC_number-1 {count=0
+					   for b2=0, GC_Esyn_matrix[b1].size-1 {for b3=0, axon_array[GC_Esyn_matrix[b1].x[b2]].size-1 {GCPreAP[b1][count][b3].start=axon_array[GC_Esyn_matrix[b1].x[b2]].x[b3]}
+															count=count+1}}
+															
+}
+access GC[0].soma
+
+//GC_e_weight=0.02*area(0.5)*(1e-5)*scale_factor*10 //this produces a EPSP of 0.8 mV at the soma, matching the value in Beck 2011 Neuron supplementary figure 2.
+
+GC_e_weight=0.02*area(0.5)*(1e-5)*scale_factor*10/1.25*1.2
+//activate synapses that are included in the input_pattern vector input_pattern.x[]---> axon identity
+proc activateGCsynapse()  {local b1, b2, b3, b4
+//deactivate all excitatory synapses in GCs
+for b1=0, GC_number-1{for b2=0, input_sample_size-1{for b3=0, number_of_input-1 {GC_e_nc[b1][b2][b3].weight=0  GC_NMDA_nc[b1][b2][b3].weight=0}}}
+for b1=0, input_pattern.size-1 {active_axon=input_pattern.x[b1]
+	for b2=0, GC_number-1 {for b3=0, input_sample_size-1 {if (GC_Esyn_matrix[b2].x[b3]==active_axon){for b4=0, number_of_input-1{GC_e_nc[b2][b3][b4].weight=GC_e_weight GC_NMDA_nc[b2][b3][b4].weight=GC_e_weight*1.1}}}}}
+	
+}
+
+
+				
+build_GC_synapse()
+activateGCsynapse()
+

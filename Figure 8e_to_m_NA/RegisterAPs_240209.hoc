@@ -1,0 +1,117 @@
+//register APs in each GC		
+objref BCAP[BC_number], BCAP_time[BC_number]
+objref GCAPrecord[GC_number]
+objref GCAP_time[GC_number]  //record the time of individual APs in each GC
+proc RegisterAP(){	local a 
+
+for a=0, GC_number-1 {access GC[a].soma
+					  GCAPrecord[a]=new APCount(0.5)
+					  GCAPrecord[a].thresh=0}
+					  
+
+
+for a=0, GC_number-1{GCAP_time[a]=new Vector()
+					 GCAPrecord[a].record(GCAP_time[a])}		 
+
+//register APs in each BC			 
+
+for a=0, BC_number-1{access BC[a].soma
+					 BCAP[a]=new APCount(0.5)
+					 BCAP[a].thresh=0
+					 BCAP_time[a]=new Vector()
+					 BCAP[a].record(BCAP_time[a])}
+					}
+					
+
+//write down the timing of inputs from active axon@temporal resolution of 1 ms, assuming that each axon occupies a vector with 50 spikes
+
+objref raster100[number_of_axon]
+strdef title1
+proc write_input_timing() {local e100, e101, e102, axonID, overlap100, raster_count103 
+
+
+//$1: degree of input overlap100
+//$s2: a string of the file name
+overlap100=$1
+
+for e101=0, number_of_axon-1 {raster100[e101]=new Vector(duration*1, 0)} //temporal resolution is 1 KHz
+for e100=0, input_pattern.size-1{axonID = input_pattern.x[e100]
+		      for e102=0, number_of_input-1 {if (axon_array[axonID].x[e102]<duration) {raster100[axonID].x[axon_array[axonID].x[e102]*1]=1}}			  
+//only spikes in active axons (those inside the input_pattern vector) are labeled with 1  
+}					
+				  
+
+IO = new File()
+
+sprint (title1, "%s%g%s", $s2, overlap100, ".txt")
+IO.wopen(title1)							
+							
+sprint (title1, "%s", "Time(ms),")
+for e101=0, number_of_axon-1 {sprint(title1, "%s%s%g%s", title1, "axon", e101, ",")}	
+						   IO.printf("%s\n", title1)	
+
+for raster_count103=0, raster100[0].size-1 {IO.printf("%g%s", raster_count103/1, ",")
+									     for e103=0, number_of_axon-1{if (raster100[e103].x[raster_count103]==1) {IO.printf("%g%s", 1, ",")} //a3+1
+																   if (raster100[e103].x[raster_count103]!=1) {IO.printf("%g%s", 0, ",")}
+									  
+									                               }
+									     IO.printf("\n")
+										   }
+										   
+										   
+IO.close()
+}
+
+
+
+
+//write_input_timing(0)
+
+Input_flag1=0
+Input_flag2=0
+
+proc check_input_array(){local e101, e102, countx
+						 Input_flag1=0  //for checking where there is a drift in the values of the axon_array vectors throught the program, if there is a drift, Input_flag ==1
+
+for e101=0, number_of_axon-1{for e102=0, axon_array[e101].size-1 {if (axon_array[e101].x[e102]!=check_axon_array[e101].x[e102]) {Input_flag1=1 print e101, "  ", e102}}}
+
+
+						    Input_flag2=0
+
+for e101=0, number_of_axon-1{countx=axon_array[e101].x[0]
+							 for e102=1, axon_array[e101].size-1 {if ((countx>=axon_array[e101].x[e102])&&(countx!=1000)) {Input_flag2=1 print e101, "  ", e102}
+						     countx=axon_array[e101].x[e102]}}
+
+							 
+							 }
+																
+																//check_input_array()
+																//print Input_flag1
+																//'print Input_flag2
+		
+objref GC_raster[GC_number]
+
+//$1: degree of input overlap100
+//$s2: a string of the file name
+//produce an txt file of the raster plot of GC activities with a temporal resolution of 1 ms
+proc construct_GC_raster() {local e101, e102, e103, overlap100, raster_count103
+							for e101=0, GC_number-1 {GC_raster[e101]=new Vector(duration+10,0) //+10 is to prevent x exceeds vector range when some cells fire APs at 500 ms. Output to file -10 elements per vector
+											  if (GCAP_time[e101].size>0) {
+				                              for e102=0, GCAP_time[e101].size-1 {e103=GCAP_time[e101].x[e102] //AP timing, defines which element in the vector 
+																				  GC_raster[e101].x[e103]=GC_raster[e101].x[e103]+1}
+											  }
+							    }
+							overlap100=$1
+							sprint (title1, "%s%g%s", $s2, overlap100, ".txt")
+							IO.wopen(title1)
+							
+							sprint (title1, "%s", "Time(ms),")
+							for e101=0, GC_number-1 {sprint(title1, "%s%s%g%s", title1, "GC", e101, ",")}	
+						    IO.printf("%s\n", title1)	
+							
+							for raster_count103=0, GC_raster[0].size-1-10 {IO.printf("%g%s", raster_count103/1, ",")
+									     for e103=0, GC_number-1{IO.printf("%g%s",GC_raster[e103].x[raster_count103] , ",")}
+									     IO.printf("\n")
+										   }
+						   }
+										   																

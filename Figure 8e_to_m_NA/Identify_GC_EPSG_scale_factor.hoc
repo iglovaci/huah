@@ -1,0 +1,76 @@
+scale_factor = 0.1 //the scale factor for EPSGs in both BCs and GCs
+tstop=200
+/*
+xopen("GC_connection_Poisson_excitation_231229_mpi.hoc")
+xopen("BC_excitatory_connection_231229_mpi.hoc")
+xopen("BC-GC_inhibitory_synapse_231229.hoc")
+*/
+
+xopen("GC_BC template_231229.hoc")
+objref GC
+GC=new excitatory_cell()
+geom_nseg_shared()
+
+objref e_syn, enc, PreAP, rng, g, GCv, peak
+rng=new Random(4356)
+
+access GC.soma
+distance(0, 0.5)
+
+peak = new Vector(10)
+
+proc make_synapse(){local a1
+					access GC.dend
+					a1=rng.discunif(0, 9)
+					while ((distance(a1/10)>140)||(distance(a1/10)<70)) {a1=rng.discunif(0, 9)}
+					e_syn=new Exp2Syn(a1/10)
+					e_syn.tau1=1
+					e_syn.tau2=5
+					e_syn.e=0
+					
+					
+					access GC.dend					
+					PreAP=new NetStimm(.5)
+					PreAP.number = 1
+					PreAP.noise= 0
+					PreAP.interval =10
+
+					enc=new NetCon(PreAP, e_syn, 0, 0, 0)
+
+					enc.weight=GC_e_weight	
+}
+
+access GC.soma
+
+GC_e_weight=0.02*area(0.5)*(1e-5)*scale_factor*8 //this produces a EPSP of 0.8 mV at the soma, matching the value in Beck 2011 Neuron supplementary figure 2.
+
+
+g = new Graph()
+
+proc init() {finitialize (-80)
+			 dt = 0.1}
+
+GCv=new Vector()
+access GC.soma
+GCv.record(&v(0.5))
+
+proc simulate() {local total, count
+				  init()
+				  total=tstop/dt
+				  count=0
+				  while(count<total) {fadvance()
+									   count+=1}
+				}
+			
+
+		
+
+for a=0, 9 {make_synapse()
+			simulate()
+			peak.x[a]=GCv.max-GCv.min
+			print peak.x[a]
+
+			GCv.plot(g)		}		
+
+print peak.mean
+ 
