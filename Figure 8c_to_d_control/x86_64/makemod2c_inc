@@ -1,0 +1,48 @@
+./gap.c: ../gap.mod
+	@printf " -> $(C_GREEN)NMODL$(C_RESET) $<\\n"
+	(cd "..";  MODLUNIT=$(NRNUNITS) $(NOCMODL) "gap.mod" -o "/fp/homes01/u01/ec-huah/FFI_onHPC/MOD_for_MPI_240519/x86_64")
+
+./gap.o: ./gap.c
+	@printf " -> $(C_GREEN)Compiling$(C_RESET) $<\\n"
+	$(COMPILE) -I".." $(INCLUDES) -fPIC -c $< -o $@
+
+./kdrca1.c: ../kdrca1.mod
+	@printf " -> $(C_GREEN)NMODL$(C_RESET) $<\\n"
+	(cd "..";  MODLUNIT=$(NRNUNITS) $(NOCMODL) "kdrca1.mod" -o "/fp/homes01/u01/ec-huah/FFI_onHPC/MOD_for_MPI_240519/x86_64")
+
+./kdrca1.o: ./kdrca1.c
+	@printf " -> $(C_GREEN)Compiling$(C_RESET) $<\\n"
+	$(COMPILE) -I".." $(INCLUDES) -fPIC -c $< -o $@
+
+./na3n_240512.c: ../na3n_240512.mod
+	@printf " -> $(C_GREEN)NMODL$(C_RESET) $<\\n"
+	(cd "..";  MODLUNIT=$(NRNUNITS) $(NOCMODL) "na3n_240512.mod" -o "/fp/homes01/u01/ec-huah/FFI_onHPC/MOD_for_MPI_240519/x86_64")
+
+./na3n_240512.o: ./na3n_240512.c
+	@printf " -> $(C_GREEN)Compiling$(C_RESET) $<\\n"
+	$(COMPILE) -I".." $(INCLUDES) -fPIC -c $< -o $@
+
+./naRSIN.c: ../naRSIN.mod
+	@printf " -> $(C_GREEN)NMODL$(C_RESET) $<\\n"
+	(cd "..";  MODLUNIT=$(NRNUNITS) $(NOCMODL) "naRSIN.mod" -o "/fp/homes01/u01/ec-huah/FFI_onHPC/MOD_for_MPI_240519/x86_64")
+
+./naRSIN.o: ./naRSIN.c
+	@printf " -> $(C_GREEN)Compiling$(C_RESET) $<\\n"
+	$(COMPILE) -I".." $(INCLUDES) -fPIC -c $< -o $@
+
+./netstimm.c: ../netstimm.mod
+	@printf " -> $(C_GREEN)NMODL$(C_RESET) $<\\n"
+	(cd "..";  MODLUNIT=$(NRNUNITS) $(NOCMODL) "netstimm.mod" -o "/fp/homes01/u01/ec-huah/FFI_onHPC/MOD_for_MPI_240519/x86_64")
+
+./netstimm.o: ./netstimm.c
+	@printf " -> $(C_GREEN)Compiling$(C_RESET) $<\\n"
+	$(COMPILE) -I".." $(INCLUDES) -fPIC -c $< -o $@
+
+./NMDA_240512.c: ../NMDA_240512.mod
+	@printf " -> $(C_GREEN)NMODL$(C_RESET) $<\\n"
+	(cd "..";  MODLUNIT=$(NRNUNITS) $(NOCMODL) "NMDA_240512.mod" -o "/fp/homes01/u01/ec-huah/FFI_onHPC/MOD_for_MPI_240519/x86_64")
+
+./NMDA_240512.o: ./NMDA_240512.c
+	@printf " -> $(C_GREEN)Compiling$(C_RESET) $<\\n"
+	$(COMPILE) -I".." $(INCLUDES) -fPIC -c $< -o $@
+

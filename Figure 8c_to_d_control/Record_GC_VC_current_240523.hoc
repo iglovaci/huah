@@ -1,0 +1,101 @@
+//for debugging
+/*
+objref PC, PCvode
+PC= new ParallelContext()
+PC.nthread(2048)
+dt=.1
+load_file("stdgui.hoc")
+duration = 300
+//PC.runworker()
+
+
+RNGseed=5678
+number_of_axon=2500 //2500 axons, producing a connection probability of 2% (Scharfman, 2009)
+input_sample_size = 50 //how many axons each GC sample from
+number_of_input=50 //each axon produce 50 inputs that are distributed in time
+Activeaxon_number=750//total number of active axons
+GC_number = number_of_axon * 5
+xopen("GC_BC template.hoc")
+objref GC[GC_number]
+for a=0, GC_number-1 {GC[a]=new excitatory_cell()
+					  access GC[0].soma
+					  //geom_nseg_shared()
+
+
+					 }
+
+
+*/
+
+objref GC_I[500], GC_VC[500]
+strdef fname
+proc recordGC_I() {local b1, b2 localobj findGC, rng5
+					//select 1000 GCs
+ 
+
+					findGC=new Vector(GC_number,-1000)
+					rng5=new Random(RNGseed*3)
+
+					b1=0
+					while (b1<500) {b2=rng5.discunif(0, GC_number-1)
+									 while (findGC.x[b2]>0) {b2=rng5.discunif(0, GC_number-1)}
+									 findGC.x[b2]=1000
+									 b1=b1+1}
+					b2=0
+					for b1=0, findGC.size-1 {if (findGC.x[b1]>0) {access GC[b1].soma
+																  GC_VC[b2]= new SEClamp(0.5)
+																  GC_VC[b2].dur1=duration
+																  GC_VC[b2].amp1=-50
+																  GC_VC[b2].rs=1e-9
+																  GC_I[b2]=new Vector()
+																  GC_I[b2].record(&GC_VC[b2].i)
+																  b2=b2+1
+																  
+																  
+																  }				
+											}
+											
+						
+					}
+ 
+
+
+strdef fname, file_name
+//objref GC_I[500] 
+//for a=0, 499 GC_I[a]=new Vector(100, a)
+proc writeGC_I() {local b1, b2 localobj IO1
+				  sprint (file_name, "%s%g%s", "GC_VC_I_",Activeaxon_number, "axon.txt")
+					//objref IO1
+					IO1=new File()
+					IO1.wopen(file_name)
+					sprint(fname, "%s%s", "Time", " ")
+
+					//print "fff"
+					for b1=0, 499 {sprint(fname, "%s%s%g%s", fname, "GC", b1, "Vm ")}
+					sprint(fname,"%s%s", fname, "\n")	
+					IO1.printf("%s", fname)
+					 
+			  
+					//print "ddd"
+					for b1=0, GC_I[0].size-1 {  sprint(fname, "%g%s", b1, " ")
+												 
+												for b2=0, 499 {sprint(fname, "%s%f%s", fname, GC_I[b2].x[b1], " ")}
+												sprint(fname, "%s%s", fname, "\n")
+												IO1.printf("%s", fname)
+												
+												
+												}
+					IO1.close()
+}
+
+
+recordGC_I() 
+
+/*
+tstop=100
+run()
+writeGC_I()
+
+
+PC.done()
+*/
