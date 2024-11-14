@@ -1,0 +1,23 @@
+//register APs in each GC		
+objref BCAP[BC_number], BCAP_time[BC_number]
+objref GCAPrecord[GC_number]
+objref GCAP_time[GC_number]  //record the time of individual APs in each GC
+proc RegisterAP(){	local a 
+
+for a=0, GC_number-1 {access GC[a].soma
+					  GCAPrecord[a]=new APCount(0.5)
+					  GCAPrecord[a].thresh=0}
+					  
+
+
+for a=0, GC_number-1{GCAP_time[a]=new Vector()
+					 GCAPrecord[a].record(GCAP_time[a])}		 
+
+//register APs in each BC			 
+
+for a=0, BC_number-1{access BC[a].soma
+					 BCAP[a]=new APCount(0.5)
+					 BCAP[a].thresh=0
+					 BCAP_time[a]=new Vector()
+					 BCAP[a].record(BCAP_time[a])}
+					}

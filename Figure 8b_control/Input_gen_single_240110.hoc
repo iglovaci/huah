@@ -1,0 +1,105 @@
+/*
+RNGseed=4321
+number_of_axon=2500 //2500 axons, producing a connection probability of 2% (Scharfman, 2009)
+input_sample_size = 50 //how many axons each GC sample from
+number_of_input=20 //each axon produce 20 inputs that are distributed in time
+Activeaxon_number=250 //total number of active axons
+*/
+
+duration =400 //duration is 400 ms
+
+objref input_time, axon_array[number_of_axon], axon_raster[number_of_axon], make_int, IO
+
+//axon_array is the vector where the timing of inputs in each axon is stored
+
+
+for a1=0, number_of_axon-1 axon_array[a1]= new Vector(number_of_input)
+input_time=new Vector(number_of_input,10000)
+
+
+objref rng, rng4
+rng=new Random(RNGseed)
+
+rng4=new Random(RNGseed*3)
+proc generate_input_single_axon() {local ISI, AP_delay, count, a 
+						
+					   input_time=new Vector(number_of_input,10000)
+					   ISI=10
+					   AP_delay=0
+					   
+					   /*
+                       AP_delay=AP_delay+rng.negexp(ISI)
+					   while (AP_delay<=3) {AP_delay=AP_delay+rng.negexp(ISI)}
+                       for a=0, number_of_input-1 {if (AP_delay>300) {break} //100 ms corresponds to 10 Hz
+							//InstFrequency=sin(AP_delay/100*PI)*50 //the frequency vector (depending on the 10 Hz theta phase) is scaled by 50 Hz
+							InstFrequency=50
+							ISI=1000/InstFrequency
+							AP_delay=AP_delay+rng.negexp(ISI)
+							//print AP_delay, "     ", InstFrequency
+							input_time.x[a]=AP_delay+0}
+							//for a=0, number_of_input-1 {print input_time.x[a]} 
+							*/
+					 AP_delay=rng4.normal(100,0)	
+					 input_time.x[0]=AP_delay+100
+							}
+
+
+
+							
+
+strdef title
+					
+							
+//fill the axons (#number_of_axon ) with input patterns. The activity pattern of axon(n) is stored in the vector axon_array[n].x[input_identity] 							
+proc generate_input() {local c1, c2
+					   for c1=0, number_of_axon-1 {generate_input_single_axon()
+							for c2=0, number_of_input-1 {axon_array[c1].x[c2]=input_time.x[c2]}}
+							}
+
+
+//each axon has its activity pattern established and stored in the axon_raster[a1].x[b], a1 representing the identity of the axon, and b representing the time 		
+//axon_raster[a].x[b]; a represents axon identity, b rerpesent time; vector value 0 = no input, vector value = 1 input on
+		
+proc make_input_raster() {local a1, a2, a3, raster_count
+						   for a1=0, number_of_axon-1 {axon_raster[a1]=new Vector(duration*1, 0)} //temporal resolution is 1 KHz
+						   
+						   for a1=0, number_of_axon-1 {for a2=0, number_of_input-1 {if (axon_array[a1].x[a2]<duration) {axon_raster[a1].x[axon_array[a1].x[a2]*1]=1
+																						//print a1,"---", axon_array[a1].x[a2]*10
+																						}}}
+						  
+						   //a1 is the axon identity		  
+							}
+											
+
+
+//generate_input()
+objref 		raster[number_of_axon]
+proc make_output_raster_for_origin() {local a1, a2, a3, raster_count 
+						   for a1=0, number_of_axon-1 {raster[a1]=new Vector(duration*1, 0)} //temporal resolution is 1 KHz
+						   for a1=0, number_of_axon-1 {for a2=0, number_of_input-1 {if (axon_array[a1].x[a2]<duration) {raster[a1].x[axon_array[a1].x[a2]*1]=1}}}
+																					//	print a1,"---", axon_array[a1].x[a2]*1
+																						//}}}
+						   objref IO
+						   IO = new File()
+						   IO.wopen("list of input.txt")							
+							
+						   sprint (title, "%s", "Time,")
+                           for a1=0, number_of_axon-1 {sprint(title, "%s%s%g%s", title, "axon", a1, ",")}	
+						   IO.printf("%s\n", title)	
+
+						   for raster_count=0, raster[0].size-1 { 
+									   
+									  IO.printf("%g%s", raster_count/1, ",")
+									  for a3=0, number_of_axon-1{
+																 if (raster[a3].x[raster_count]==1) {IO.printf("%g%s", 1, ",")} //a3+1
+																 if (raster[a3].x[raster_count]!=1) {IO.printf("%g%s", 0, ",")}
+									  
+									  }
+									IO.printf("\n")
+										   }
+										   
+										   
+						  IO.close()
+									  
+					}
+					
