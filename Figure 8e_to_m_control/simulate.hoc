@@ -1,0 +1,76 @@
+stoptime=duration
+
+proc init() {tstop = stoptime
+			 finitialize (-75)
+	  
+			 dt =0.1 
+			
+			 
+			 
+			 
+			 }
+		 
+//register APs in each GC			 
+objref GCAPrecord[GC_number]
+for a=0, GC_number-1 {access GC[a].soma
+					  GCAPrecord[a]=new APCount(0.5)
+					  GCAPrecord[a].thresh=0}
+					  
+//uncouple_BC() is used to remove feedforward excitatory inputs targeting BCs
+proc uncouple_BC() {local b1, b2, b3 
+
+					for b1=0, BC_number-1{for b2=0, input_sample_size-1{for b3=0, number_of_input-1 {BC_e_nc[b1][b2][b3].weight=0}}}
+
+	
+
+				   }			
+
+
+
+
+proc uncouple_GC() {local b1, b2, b3 
+
+					for b1=0, GC_number-1{for b2=0, input_sample_size-1{for b3=0, number_of_input-1 {GC_e_nc[b1][b2][b3].weight=0}}}
+
+	
+
+				   }					   
+					  
+proc simulate(){local count_time, noise_count,b1,b2,b3
+				count_time=0 	  
+				tag=0
+				tag1=0
+
+				
+				init()
+				
+				//061223 remove
+				//uncouple_BC()
+				//uncouple_GC()
+				//*************************
+				
+					 
+				progress = 10  
+				total_sample=stoptime/dt
+				print total_sample
+				while (count_time<total_sample) {  total=(stoptime)/dt
+												 //print count_time
+												 /*
+												   if ((count_time>150/dt)&&(count_time<300/dt)&&(tag==0)) {tag=1
+												   activateGCsynapse()
+												   activateBCsynapse()
+												  
+												   }
+												  
+												   if ((count_time>=300/dt)&&(tag1==0)) {for b1=0, BC_number-1{for b2=0, input_sample_size-1{for b3=0, number_of_input-1 {BC_e_nc[b1][b2][b3].weight=0}}}
+																						 for b1=0, BC_number-1{for b2=0, input_sample_size-1{for b3=0, number_of_input-1 {GC_e_nc[b1][b2][b3].weight=0}}}
+																						 tag1=1		}
+																						 */
+												   fadvance() 
+												   
+												   count_time=count_time+1
+												   if (count_time>progress/100*total_sample) { print  progress, "% progress" progress=progress+10}
+												 
+											  }
+				
+											  }

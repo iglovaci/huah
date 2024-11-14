@@ -1,0 +1,155 @@
+/*
+//need to be removed before integration to other packages
+//*****************************************************************************************************************************************************************
+RNGseed=345
+number_of_axon=2500 //2500 axons, producing a connection probability of 2% (Scharfman, 2009)
+input_sample_size = 50 //how many axons each GC or (BC) sample from
+number_of_input=20 //each axon produce 20 inputs that are distributed in time
+
+
+Activeaxon_number=200 //total number of active axons
+
+xopen("GC_BC template.hoc")
+
+xopen("Input_gen.hoc") //this line need to be removed when integrate into other packages
+
+
+
+
+//*****************************************************************************************************************************************************************
+
+
+*/
+
+
+
+
+BC_number = (number_of_axon * 5 /100)*1.5 //2% of the GC number, matching those in Hu and Jonas
+
+objref BC_Esyn_matrix[BC_number] //the connection pattern from afferent axons to each BC
+
+//Establish the connection pattern of each BC
+//Randomly select (#input_sample_size) axons for each BC. The specific number of selected axons are stored in the vector (BC_Esyn_matrix[BC_identity].x[]=axon identity). 
+//estabilish_BC_Esyn() is run only once. 
+proc Establish_BC_Esyn() { local b1,b2,BC_identity,c1,c2 localobj BCbuffer_pattern, rng3
+						   rng3=new Random(RNGseed)
+						   for BC_identity=0, BC_number-1 {BC_Esyn_matrix[BC_identity]=new Vector(input_sample_size, -1000)} //each vector store the identity of the axon that targets the BC
+					
+						   for BC_identity=0, BC_number-1 {BCbuffer_pattern=new Vector(number_of_axon,-1000)
+													b1=0
+													while (b1<input_sample_size) {b2= rng3.discunif(0, number_of_axon-1)
+																				  while (BCbuffer_pattern.x[b2]>0) {b2=rng3.discunif(0, number_of_axon-1)}
+																				  BCbuffer_pattern.x[b2]=999								  
+																				  // print b2								  
+															  					  b1=b1+1}
+																				  // print "xxxx"
+													c2=0
+													for c1=0, number_of_axon-1 {if (BCbuffer_pattern.x[c1]>0) {BC_Esyn_matrix[BC_identity].x[c2]=c1 
+																											 c2=c2+1
+																											 //  print c1
+																				}}
+
+													}	
+				  }
+
+
+Establish_BC_Esyn()
+
+//create BCs
+objref BC[BC_number]
+for a=0, BC_number-1 {BC[a]=new inhibitory_cell() }
+
+
+
+
+/*
+//need to be removed before integration to other packages
+//*****************************************************************************************************************************************************************
+objref input_pattern, rng2, buffer_pattern
+rng2= new Random()
+input_pattern= new Vector(Activeaxon_number) //input pattern is a vector that points to the axons targeting the cell 
+buffer_pattern=new Vector(number_of_axon,-1000)
+
+
+
+//Randomly select (#Activeaxon_number) axons for activating GCs. The specific number of selected axons are stored in the vector (input_pattern). 
+//choose input is run only once. Afterward, a fraction of choosen inputs are replace with change_input() function.
+proc choose_input() {generate_input() 
+					 input_pattern= new Vector(Activeaxon_number)
+					 buffer_pattern=new Vector(number_of_axon,-1000)
+					 b1=0
+					 while (b1<Activeaxon_number) {b2= rng2.discunif(0, number_of_axon-1)
+							  while (buffer_pattern.x[b2]>0) {b2=rng2.discunif(0, number_of_axon-1)
+															  }
+							  buffer_pattern.x[b2]=999								  
+							 // print b2								  
+															  
+							  b1=b1+1}
+							  print "xxxx"
+					 c2=0
+					 for c1=0, number_of_axon-1 { if (buffer_pattern.x[c1]>0) {input_pattern.x[c2]=c1 
+														  c2=c2+1
+														//  print c1
+														  }}
+
+}														  
+						
+						choose_input()
+						  
+						  
+//**********************************************************************************************************************************************************************						  
+*/
+
+
+//create a NetStim and a Exp2Syn point process for each synaptic input targeting BCs
+objref BCPreAP[BC_number][input_sample_size][number_of_input], BC_e_syn[BC_number][input_sample_size][number_of_input], BC_e_nc[BC_number][input_sample_size][number_of_input]
+objref BC_nmda_syn[BC_number][input_sample_size][number_of_input], BC_nmda_nc[BC_number][input_sample_size][number_of_input]
+proc build_BC_synapse() {local a, a1, a2,b1, b2,b3, count
+						 
+						 
+
+
+for a=0, BC_number-1 {access BC[a].soma
+					  for a1=0, input_sample_size-1{for a2=0, number_of_input-1{BC_e_syn[a][a1][a2]= new Exp2Syn(0.5)
+																				BC_e_syn[a][a1][a2].tau1=1
+																				BC_e_syn[a][a1][a2].tau2=3
+																				BC_e_syn[a][a1][a2].e=0
+																				BCPreAP[a][a1][a2]=new NetStimm(0.5)
+																				BCPreAP[a][a1][a2].number = 1
+																				BCPreAP[a][a1][a2].noise= 0
+																				BCPreAP[a][a1][a2].interval =10
+																				BC_e_nc[a][a1][a2]=new NetCon(BCPreAP[a][a1][a2], BC_e_syn[a][a1][a2], 0, dt*2, 0)
+																				BC_nmda_syn[a][a1][a2]= new NMDA(0.5)
+																				BC_nmda_syn[a][a1][a2].tau1=3
+																				BC_nmda_syn[a][a1][a2].tau2=70
+																				BC_nmda_syn[a][a1][a2].e=0
+																				BC_nmda_nc[a][a1][a2]=new NetCon(BCPreAP[a][a1][a2], BC_nmda_syn[a][a1][a2], 0, dt*2, 0)
+																				
+																				}}}
+
+
+
+
+//assign the timing to each NetStimm in BCPreAP[][][].start
+for b1=0, BC_number-1 {count=0
+					   for b2=0, BC_Esyn_matrix[b1].size-1 {for b3=0, axon_array[BC_Esyn_matrix[b1].x[b2]].size-1 {BCPreAP[b1][count][b3].start=axon_array[BC_Esyn_matrix[b1].x[b2]].x[b3]}
+															count=count+1}}
+															
+}				
+
+build_BC_synapse() 		  
+
+access BC[0].soma
+
+BC_e_weight=0.02*area(0.5)*(1e-5)*scale_factor*10/(2.83*4.6)*1.995/1.25  //to match 150% of the EPSC amplitude in GCs, Glickfeld and Scanziani
+
+//activate synapses that are included in the input_pattern vector input_pattern.x[]---> axon identity
+proc activateBCsynapse()  {local b1, b2, b3, b4
+//deactivate all excitatory synapses in BCs
+for b1=0, BC_number-1{for b2=0, input_sample_size-1{for b3=0, number_of_input-1 {BC_e_nc[b1][b2][b3].weight=0 BC_nmda_nc[b1][b2][b3].weight=0}}}
+for b1=0, input_pattern.size-1 {active_axon=input_pattern.x[b1]
+	for b2=0, BC_number-1 {for b3=0, input_sample_size-1 {if (BC_Esyn_matrix[b2].x[b3]==active_axon){for b4=0, number_of_input-1{BC_e_nc[b2][b3][b4].weight=BC_e_weight BC_nmda_nc[b2][b3][b4].weight=BC_e_weight*1.1}}}}}
+	//the NMDA to AMPA conductance ratio was based on Booker SA, 2021, eNeuro, DOI: https://doi.org/10.1523/ENEURO.0552-20.2021 
+}
+
+activateBCsynapse()

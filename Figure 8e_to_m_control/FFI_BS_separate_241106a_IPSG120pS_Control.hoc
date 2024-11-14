@@ -1,0 +1,403 @@
+objref PC
+PC= new ParallelContext()
+PC.nthread(64)
+dt=.1
+//PC.runworker()
+scale_factor=0.1
+
+RNGseed=452 //the RNG seed was changed to create random initiation conditions
+number_of_axon=2500 //2500 axons, producing a connection probability of 2% (Scharfman, 2009)
+input_sample_size = 50 //how many axons each GC sample from
+number_of_input=25 //each axon produce 75 inputs that are distributed in time
+Activeaxon_number=1200//total number of active axons
+
+xopen("GC_BC_template_240520.hoc")
+xopen("Input_gen_Poisson_240408.hoc")
+
+
+
+
+
+
+strdef fname
+
+scale_factor = 0.1 //the scale factor for EPSGs in both BCs and GCs
+
+
+print "load GC_connection_Poisson_excitation_240520_mpi.hoc"
+xopen("GC_connection_Poisson_excitation_240520_mpi.hoc")
+
+print "load BC_excitatory_connection_240520_mpi.hoc"
+xopen("BC_excitatory_connection_240520_mpi.hoc")
+
+print "BC-GC_inhibitory_synapse_24020.hoc"
+xopen("BC-GC_inhibitory_synapse_240520.hoc")
+changeBC_synapse_weight(GC_IPSG_weight*30)
+
+print "BC-BC inhibitory connection_240512.hoc"
+//xopen("BC-BC inhibitory connection_240512.hoc")
+
+
+print "load RegisterAPs_240209.hoc"
+xopen("RegisterAPs_240209.hoc")
+
+print "load simulate.hoc"
+xopen("simulate.hoc")
+ 
+print "load change_input_240325.hoc"
+xopen("change_input_240325.hoc")
+
+print "load correlation.hoc"
+xopen("correlation_240124.hoc")
+
+for a100=0, BC_number-1{access BC[a100].soma
+					    e_pas=-62 // RMP = -52.8 with the e_pas value because of the K window current
+						g_pas= 1/20000  //based on the time constant of Iulia's measurement 240124
+						//diam= 5.6419*1.4 //Adjust so that the input resistance of the interneuron is appriximal one third of that of the excitatory cell
+						//L=5.6419*1.4
+						}
+/*						
+for a100=0, GC_number-1 {access GC[a100].soma
+						 e_pas=-80+rng4.normal(10, 10*10*.5*.5)-10}
+*/
+access BC[0].soma
+print "e_pas = ", e_pas
+print "print BCtoGC_I_nc[0][0].weight =", BCtoGC_I_nc[0][0].weight
+
+//run the simulation with FFI
+RegisterAP()
+//simulate()
+
+
+objref output1, output2
+output1= new Vector (GC_number)
+output2= new Vector (GC_number)
+
+
+objref i_pattern, o_pattern, IO
+strdef filename
+i_pattern=new Vector(input_pattern.size)
+o_pattern=new Vector(GC_number-1)
+
+
+objref output1, output2
+output1= new Vector (GC_number)
+output2= new Vector (GC_number)
+
+
+objref i_pattern, o_pattern, IO
+strdef filename
+i_pattern=new Vector(input_pattern.size)
+o_pattern=new  Vector(GC_number-1)
+z1=0
+
+objref input_buffer1, input_buffer2, input1, input2, input_Jaccard, input_cosine, input_correlation
+input_correlation=new Vector(101,-1000)
+input_cosine=new Vector(101, -1000)
+input_Jaccard=new Vector(101, -1000)
+
+objref stored_input_pattern, convert_to_integral, output_cosine, output_correlation, output_Jaccard
+output_correlation = new Vector(101, -1000)
+output_cosine=new Vector(101, -1000)
+output_Jaccard=new Vector(101, -1000)
+
+
+
+
+//A function that saves GC outputs after changing the input pattern
+//each GC occupies 50 rows
+Input_overlap=100
+objref activeGC, activeGC_APtime
+activeGC=new Vector(GC_number,-1000)
+activeGC_APtime=new Vector(50*GC_number, -100)
+strdef fname
+
+
+
+IO = new File()
+
+
+
+
+
+
+input1=new Vector(number_of_axon,0)
+input2=new Vector(number_of_axon,0)
+
+
+//The input pattern is the number of APs fired by each axon between 150 to 250 ms, sorted based on axon ID. 
+//The output pattern is the number of APs fired by each GC between 150 to 250 ms, , sorted based on GC ID. 
+
+
+
+proc input_to_file() {local b100
+					   IO = new File()
+					   sprint(filename, "%s%g%s", "input_with_Ioverlap_of_", Input_overlap,"_axon1200_IPSG30_DEP0.txt")
+					   IO.wopen(filename)
+					   sprint(filename, "%s%s", "Axon_ID Input1_AP_number Input2_AP_number", "\n")
+					   IO.printf("%s", filename)
+					   
+					   for b100=0, input1.size-1 {sprint(filename, "%g%s%g%s%g%s", b100, " ", input1.x[b100], " ", input2.x[b100], "\n")
+					   IO.printf("%s", filename)}
+					   IO.close()}
+
+proc output_to_file() {local b100
+					    IO = new File()
+					   sprint(filename, "%s%g%s", "output_with_Ioverlap_of_", Input_overlap,"_axon1200_IPSG30_DEP0.txt")
+					   IO.wopen(filename)
+					   sprint(filename, "%s%s", "GC_ID Output1_AP_number Output2_AP_number", "\n")
+					   IO.printf("%s", filename)
+					   
+					   for b100=0, output1.size-1 {sprint(filename, "%g%s%g%s%g%s", b100, " ",output1.x[b100], " ", output2.x[b100], "\n")
+					   IO.printf("%s", filename)}
+					   IO.close()}
+
+
+
+												  
+
+objref stored_output_pattern
+
+					  
+								objref BCV
+								BCV=new Vector()
+								access BC[0].soma
+								BCV.record(&v(0.5))
+								
+proc write_overlap() { local ax100				  
+					   IO = new File()
+					   IO.wopen("FFI_overlap_axon1200_IPSG30_DEP0.txt")
+					   sprint (fname, "Input_correlation output_correlation Input_cosine_similarity Output_cosine_similarity Input_Jaccard Output_Jaccard")
+				       IO.printf("%s\n", fname)
+for ax100=0, output_correlation.size-1 {sprint(fname,"%f%s%f%s%f%s%f%s%f%s%f",input_correlation.x[ax100], " ", output_correlation.x[ax100], " ", input_cosine.x[ax100], " ", output_cosine.x[ax100], " ", input_Jaccard.x[ax100], " ", output_Jaccard.x[ax100]) 
+								  IO.printf("%s\n",fname)}
+					  IO.close()
+ 			
+}								
+								
+								
+
+//*********************************************************
+
+proc Pattern_separation() { local zzzz localobj buf1, buf2
+							print "Quantify pattern separation"
+							print "Simulate to acquire the input and output template"
+							stored_input_pattern=new Vector(input_pattern.size)
+							stored_input_pattern.copy(input_pattern) //copy the input_pattern to memory
+							RegisterAP()
+							simulate()
+							
+							active=0
+							for a=0, BC_number-1 {active=active+BCAP[a].n}
+							print "BC AP number = ", active	
+							
+							active=0
+							
+							
+							stored_output_pattern=new Vector(GC_number)
+							for d100=0, GC_number-1{count100=0
+						    for d101=0, GCAP_time[d100].size-1 {if ((GCAP_time[d100].x[d101]>150)&&(GCAP_time[d100].x[d101]<550)){count100=count100+1 active=active+1}}
+						                                        stored_output_pattern.x[d100]=count100}
+													
+																
+							print "total GC APs = ", active
+							
+							//generate the raster plot of input_patterns ("stored_input_raster_0.txt")		
+							write_input_timing(0,"DEP0_axon1200_IPSG30_stored_input_raster_")
+							//generate the raster plot of output_patterns ("stored_output_raster_0.txt")	
+							construct_GC_raster(0,"DEP0_axon1200_IPSG30_stored_output_raster_")
+							//these two files will be used as the template to compare with the raster plots in response to the change of input_patters
+							
+							
+							print "Change the input pattern"
+						    
+							
+							  Input_flag1=0
+							  Input_flag2=0
+							  check_input_array()
+							  if ((Input_flag1==1)||(Input_flag2==1)) {print "Input flag == 1" break}
+												  
+												  
+							
+
+for (Input_overlap=0; Input_overlap<=100; Input_overlap=Input_overlap+2){input_pattern.copy(stored_input_pattern)
+	
+	
+												  
+												  //calculate the number of preserved axons that needs to match the degree of overlap
+												  Preserved_axons=(Activeaxon_number*2*Input_overlap/100)/(1+(Input_overlap/100))
+												  //print "Input_overlap=", Input_overlap, "preserved axons =", Preserved_axons
+												  									  
+												  convert_to_integral = new Vector(Preserved_axons, -100)
+												  Preserved_axons=convert_to_integral.size
+												 
+												  //write_preserved_output()  //write down the GC output pattern evoked by the reference input pattern
+												  
+												  change_input(Preserved_axons)
+												  
+												  //write down the changed input pattern
+												  //sprint(fname, "%s%g%s", "noFFI_", Input_overlap, "overlap_input_pattern.txt")
+												  //IO.wopen(fname)
+												  //for a100=0, input_pattern.size-1{IO.printf("%g\n", input_pattern.x[a100])}
+												  //IO.close()
+												  
+												  
+												  RegisterAP()
+												  simulate()
+												  
+												  
+												  //generate the raster plot of input_patterns ("Onput_raster_Input_overlap.txt")		
+												  write_input_timing(Input_overlap,"DEP0_axon1200_IPSG30_Input_raster_Ioverlap_of_")
+												  //generate the raster plot of output_patterns ("Output_raster_Input_overlap.txt")	
+												  construct_GC_raster(Input_overlap,"DEP0_axon1200_IPSG30_Output_raster_Ioverlap_of_")
+												  //these files will be used to compare with stored_input_raster_0.txt & stored_output_raster_0.txt to contruct the time course of pattern separation.
+												  
+												  Input_flag1=0
+												  Input_flag2=0
+												  check_input_array()
+												  
+												  if ((Input_flag1==1)||(Input_flag2==1)) {print "Input flag == 1" break}
+												  output1= new Vector (GC_number,0)
+												  output2= new Vector (GC_number,0)												  
+												  
+												  
+												  active=0
+												  for a=0, BC_number-1 {active=active+BCAP[a].n}
+												  print "BC AP number = ", active	
+
+												  active=0
+																								  
+												  for d100=0, GC_number-1{count100=0
+																		for d101=0, GCAP_time[d100].size-1 {if ((GCAP_time[d100].x[d101]>150)&&(GCAP_time[d100].x[d101]<550)){count100=count100+1 active=active+1}}
+																		output2.x[d100]=count100}
+
+												  print "total GC APs = ", active
+												  /*
+												  active_number1=0
+												  active_number2=0
+												  overlap1=0
+
+												  for a=0, GC_number-1{if (output1.x[a]>0) {active_number1=active_number1+1}
+																	 if (output2.x[a]>0) {active_number2=active_number2+1}
+																	 if ((output1.x[a]*output2.x[a])>0) {overlap1=overlap1+1}
+																	 }
+												  similarity=overlap1/(active_number1+active_number2-overlap1)
+												  */
+												  //similarity =10
+												  output1.copy(stored_output_pattern)
+												  
+												  //**************************
+												  buf1=new Vector(output1.size)
+												  buf2=new Vector(output2.size)
+												  buf1.copy(output1)
+												  buf2.copy(output2)
+												  //***************************
+												  //correlation_test(output1, output2)
+												  //output_correlation.x[Input_overlap]=correlation
+												  
+												  //****************************
+												  output1.copy(buf1)
+												  output2.copy(buf2)
+												  //****************************												  
+												  cosine_similarity(output1, output2)
+												  output_cosine.x[Input_overlap]=Dcosine
+												  similarity=Dcosine
+												  //****************************
+												  output1.copy(buf1)
+												  output2.copy(buf2)
+												  //****************************	
+												  Jaccard_similarity(output1, output2)
+												  output_Jaccard.x[Input_overlap]=Jaccard
+												  
+												  output_to_file()
+												  
+												  print "----------------------------------------------------------------------\n"
+												
+												  
+												  
+												  
+												  //calculate the correlation of input patterns
+												  input_buffer1=new Vector(Activeaxon_number)
+												  input_buffer2=new Vector(Activeaxon_number)
+												  input1=new Vector(number_of_axon,0)
+												  input2=new Vector(number_of_axon,0)
+
+												
+												  input_buffer1.copy(stored_input_pattern)
+												  input_buffer2.copy(input_pattern)
+												  
+												  //generate a reference input vector(input1) based on the identity of active axons in the input_buffer1 vector
+for a300=0, input_buffer1.size-1{axon_id=input_buffer1.x[a300]
+								for count200=0, number_of_input-1 {b300=axon_array[axon_id].x[count200]
+								
+																//determine the number of inputs between 100 to 300 ms
+																   if ((b300>150) && (b300<550)) {input1.x[axon_id]=input1.x[axon_id]+1}
+																   }
+								}
+								
+//generate a reference input vector(input2) based on the identity of active axons in the input_buffer1 vector
+for a300=0, input_buffer2.size-1{axon_id=input_buffer2.x[a300]
+								for count200=0, number_of_input-1 {b300=axon_array[axon_id].x[count200]
+								
+																//determine the number of inputs between 100 to 300 ms
+																   if ((b300>150) && (b300<550)) {input2.x[axon_id]=input2.x[axon_id]+1}
+																   }
+								}								
+
+//Pearson(input1,input2)		
+//*****************************
+buf1=new Vector(input1.size)
+buf2=new Vector(input2.size)	
+buf1.copy(input1)
+buf2.copy(input2)	
+//***************************** 
+correlation_test(input1,input2)			 
+input_correlation.x[Input_overlap]=correlation
+
+//*****************************
+input1.copy(buf1)
+input2.copy(buf2)
+//*****************************
+cosine_similarity(input1,input2)
+input_cosine.x[Input_overlap]=Dcosine
+
+//*****************************
+input1.copy(buf1)
+input2.copy(buf2)
+//*****************************
+
+Jaccard_similarity(input1,input2)
+input_Jaccard.x[Input_overlap]=Jaccard
+
+print "input overlap = ", Dcosine, "output overlap = ", similarity		
+
+
+
+	
+input_to_file()
+write_overlap()
+ 
+												  }
+
+
+			 if ((Input_flag1==1)||(Input_flag2==1)) {print "Input flag == 1" break}
+IO.wopen("FFI_BCV.txt")
+for a=0, BCV.size-1 {IO.printf("%f\n", BCV.x[a])}
+IO.close()
+
+}
+
+Pattern_separation()
+
+
+PC.done()
+
+
+					 
+print GC_IPSG_weight*8
+
+access BC[0].soma
+print L
+print diam
+
+quit()

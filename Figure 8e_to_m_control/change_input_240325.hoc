@@ -1,0 +1,106 @@
+
+											  
+											  
+
+objref exist_input, new_input, used_input, input_buffer, rng999
+rng999=new Random(RNGseed*5)
+proc change_input() {local same_input, b1, count1, b2, b3, tag 
+					 //localobj exist_input, new_input, used_input, input_buffer
+					 
+					 //same_input = $1 
+					 //the number of inputs in the new input pattern that overlaps with the current input pattern
+					
+					 //objref exist_input, new_input, used_input
+					 //exist_input: those axons are not replaced in the new simulation (input overlapping in the new simulation)
+					 //used_input: those axons that are in the current input_pattern vector
+					 
+					 //copy the current input pattern to the used_input vector
+					 used_input=new Vector(Activeaxon_number)
+					 for b1=0, Activeaxon_number-1 {used_input.x[b1]=input_pattern.x[b1]}
+				     
+					 
+					 same_input = $1 //the number of inputs in the new input pattern that overlaps with the current input pattern
+					 
+					 
+					 //randomly select #same_inputs from input_pattern
+					 //These #same_inputs are preserved. 
+					 count1=0
+					 while (count1<Activeaxon_number-same_input) {b1=rng999.discunif(0,Activeaxon_number-1)
+																  while (input_pattern.x[b1]==-1000) {b1=rng999.discunif(0,Activeaxon_number-1)}
+																  input_pattern.x[b1]=-1000
+																  count1=count1+1
+												  //print count1, "--------", Activeaxon_number-same_input 
+												  }
+					
+					
+					
+					//copy those axons are preserve in the new simulation (input overlapping in the new simulation) into the new_input vector
+					new_input= new Vector(Activeaxon_number, -1000)
+					count1=0
+					for b1=0, input_pattern.size-1 {if (input_pattern.x[b1]!=-1000) {new_input.x[count1]=input_pattern.x[b1] count1=count1+1}}
+					//for b1=0, new_input.size-1 print new_input.x[b1]
+					
+					//randomly select axons from those, which are not inside the current input_pattern vector, to fill the remaining empty space in the new_input vector (stored in vector (0) to vector (#same_input-1)
+					for b1=0, new_input.size-1 {if (new_input.x[b1]==-1000) break}
+					//print b1, "number of inputs that are not going to be replaced"
+					count1=b1
+					
+					buffer_pattern=new Vector(number_of_axon,-1000)
+					for b1=0, new_input.size-1{if (new_input.x[b1]==-1000) break
+											   buffer_pattern.x[new_input.x[b1]]=22222}
+					//those axon, which have already been selected in the buffer_pattern (overlapping), are tagged with 22222
+					
+					//print "-----------------------------Buffer-------------------------------------"
+					
+					//for b1=0, number_of_axon-1 {if (buffer_pattern.x[b1]>0) {print buffer_pattern.x[b1], " --------------- ", b1}}
+					//for b1=0, used_input.size-1 {print used_input.x[b1]}
+
+					while (count1<=new_input.size-1){b2=rng999.discunif(0, number_of_axon-1)
+													 while (buffer_pattern.x[b2]>0) {b2=rng999.discunif(0, number_of_axon-1)}
+												     tag = 0 
+													 //b2 corresponds to the identity of an axon in the buffer pattern after excluding those needs to be preserved
+													 //check whether the input overlaps with those in the current used_input vector
+													 for b1=0, used_input.size-1 {if (b2==used_input.x[b1]) {tag=1}}
+													 
+													 if (tag==0) {new_input.x[count1]=b2	
+																  buffer_pattern.x[b2]=22222
+																  count1=count1+1}
+													 
+																											 
+																	  
+																	 }
+																	 
+					/*												 
+					print "--------------------------------------------------------"
+					for b1=0, new_input.size-1 print new_input.x[b1]
+					print "--------------------------------------------------------"
+					for b1=0, new_input.size-1 print used_input.x[b1]										
+					*/												 
+					
+					//sort the inputs in the new_input in an ascending order
+					for (b1=0; b1<new_input.size-1; b1=b1+1) {for (b2=0; b2<new_input.size-b1-1; b2=b2+1) {if (new_input.x[b2]>new_input.x[b2+1]) {b3=new_input.x[b2]
+													new_input.x[b2]=new_input.x[b2+1]
+													new_input.x[b2+1]=b3}}}
+					print "--------------------------------------------------------"
+					//for b1=0, new_input.size-1 print new_input.x[b1]								
+					
+					//check whether there are redundant inputs in the new_input vector
+					count1=0
+					for b1=0, new_input.size-1 {for b2=b1+1, new_input.size-1 {if (new_input.x[b1]==new_input.x[b2]) {count1=count1+1}}}
+					print "number_of_redundant input in the new_input vector = ", count1
+					self_redundance = count1
+					
+					//determine the degree of overlap between the new_input vector and the current input vector (stored in the used_input vector)
+					count1=0
+					for b1=0, new_input.size-1 {for b2=0, used_input.size-1 {if (new_input.x[b1]==used_input.x[b2]) {count1=count1+1}}}
+					
+					print "number of overlapping input in the new_input vector with the used input vector = ", count1
+					
+					for b1=0, new_input.size-1 {input_pattern.x[b1]=new_input.x[b1]}
+					//for b1=0, new_input.size-1 print used_input.x[b1], "-----", input_pattern.x[b1]
+					
+					activateGCsynapse()
+					activateBCsynapse()
+					}
+					
+			
