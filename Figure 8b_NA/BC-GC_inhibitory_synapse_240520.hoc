@@ -1,0 +1,141 @@
+
+/*
+//need to be removed before integration to other packages
+//*****************************************************************************************************************************************************************
+scale_factor=0.1
+RNGseed=3456
+number_of_axon=2500 //2500 axons, producing a connection probability of 2% (Scharfman, 2009)
+input_sample_size = 50 //how many axons each GC or (BC) sample from
+number_of_input=20 //each axon produce 20 inputs that are distributed in time
+
+
+Activeaxon_number=200 //total number of active axons
+
+xopen("GC_BC template_231229.hoc")
+
+xopen("Input_gen_Poisson_231205.hoc") //this line need to be removed when integrate into other packages
+
+GC_number = number_of_axon * 5 
+BC_number = number_of_axon * 5 /10
+
+
+//create GCs
+objref GC[GC_number]
+for a=0, GC_number-1 {GC[a]=new excitatory_cell()
+					  access GC[0].soma
+					  geom_nseg_shared()
+
+
+					 }
+
+
+
+BC_number = number_of_axon * 5 /10
+//create BCs
+objref BC[BC_number]
+for a=0, BC_number-1 {BC[a]=new inhibitory_cell()}
+
+
+access GC[0].soma
+// GC_IPSG_weight= 0.01*area(0.5)*(1e-5) //defines the weight of IPSGs on GCs
+
+//create BCs
+objref BC[BC_number]
+for a=0, BC_number-1 {BC[a]=new inhibitory_cell()}
+BC_number = number_of_axon * 5 /50 
+
+
+//*****************************************************************************************************************************************************************
+*/ 
+
+
+BCdivergence = 700 //how many GCs each BC inhibits, adjusted to 1000 to match the convergence (~ 20) of BCs onto a single excitatory neuron by Soltesz (2014, Hippocampus)
+
+access GC[0].soma
+GC_IPSG_weight= 0.02*area(0.5)*(1e-5)*scale_factor*2 //defines the weight of IPSGs on GCs
+
+
+
+
+objref BCtoGC_Isyn[BC_number][BCdivergence], BCtoGC_I_nc[BC_number][BCdivergence]
+//create #BCnumber X BCdivergence objects as #BCnumber X BCdivergence BC to GC inhibitory synapses
+//BCtoGC_Isyn are synapse; BCtoGC_I_nc are the associated netcon
+
+objref BCtoGC_synapse_tag[BC_number]  //This object is used to tag active synapses in BCtoGC_I_nc[BC_number][BCdivergence]
+//if BCtoGC_synapse_tag[BCidentity].x[synapse]==1, the corresponding BCtoGC_I_nc[BCidentity][synapse] exists
+for b1=0, BC_number-1 {BCtoGC_synapse_tag[b1]=new Vector(BCdivergence, -999)}
+
+BCidentity = 1  //choose a BC 
+
+//create a array of vectors to store the connection pattern from BC to GCs
+objref BC_GC_Isyn_matrix[BC_number]  
+//BC_GC_Isyn_matrix[a]: a represents the identity of BC, and the vector points to individual postsynptic GC that are connected to the BC
+for b1=0, BC_number-1 {BC_GC_Isyn_matrix[b1]=new Vector(BCdivergence)}
+
+//randomly select #BCdivergence GCs
+
+proc connectBCwithGC() {local b1,b2,b3, BCidentity localobj listofGCs, rng3
+						rng3=new Random(RNGseed)
+
+						//objref listofGCs, create a list of randomly selected GCs as the postsynaptic target of a BC
+
+						for BCidentity=0, BC_number-1 {listofGCs = new Vector(GC_number, -1000)
+													   //for each BC, create a new list of postsynatic GCs
+													   b1=0
+													   while (b1<BCdivergence) {b2=rng.discunif(0, GC_number-1)
+																				while (listofGCs.x[b2]>0) {b2=rng.discunif(0, GC_number-1)}
+																				b1=b1+1
+																				listofGCs.x[b2]=999}
+							
+									
+				  
+						/*
+						//check the total number of selected GCs---------------------------
+						b2=0
+						for b1=0, listofGCs.size-1{if (listofGCs.x[b1]==999) {b2=b2+1}}
+						print b2
+
+						//------------------------------------------------------------------
+						*/
+								//copy the list of postsynaptic GCs to the corresponding vector in BC_GC_Isyn_matrix
+								b2=0
+								for b1=0, listofGCs.size-1 {b3=listofGCs.x[b1]
+								//print b3
+															if(b3>0) {BC_GC_Isyn_matrix[BCidentity].x[b2]=b1
+																				   b2=b2+1}
+															 }
+								
+								
+
+								b3=0
+								for b1=0, listofGCs.size-1 {b2=listofGCs.x[b1]
+															if (b2>0)  {access GC[b1].soma //use the values in the listofGCs.x[b1] to find the postsynaptic GC 
+																		distance(0, 0.5)
+																		d1=rng3.discunif(0, 9)
+																		access GC[b1].dend
+																		while (distance(d1/10)>140) {d1=rng3.discunif(0, 9)}
+																	    BCtoGC_Isyn[BCidentity][b3]=new Exp2Syn(d1/10)
+																		BCtoGC_Isyn[BCidentity][b3].tau1= 1
+																		BCtoGC_Isyn[BCidentity][b3].tau2= 8.13 //Based on Iulias data 14.5.2024 e-mail
+																		BCtoGC_Isyn[BCidentity][b3].e= -75
+																		access BC[BCidentity].soma
+																		BCtoGC_I_nc[BCidentity][b3]=new NetCon(&v(0.5), BCtoGC_Isyn[BCidentity][b3], 0, dt*2+1, GC_IPSG_weight)
+																		//******************
+																		BCtoGC_synapse_tag[BCidentity].x[b3]= 1
+																		//******************
+																		b3=b3+1
+																		
+																		}
+															
+
+															}
+															}
+					   
+					    }
+					   
+connectBCwithGC()					   
+					   
+proc changeBC_synapse_weight() {local b1, b2
+								for b1=0, BC_number-1 { for b2=0, BCdivergence-1{if (BCtoGC_synapse_tag[b1].x[b2]==1) {BCtoGC_I_nc[b1][b2].weight=$1}}}
+								}
+

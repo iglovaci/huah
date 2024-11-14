@@ -1,0 +1,78 @@
+objref PC, PCvode
+PC= new ParallelContext()
+PC.nthread(64)
+dt=.1
+//PC.runworker()
+
+RNGseed=287
+number_of_axon=2500 //2500 axons, producing a connection probability of 2% (Scharfman, 2009)
+input_sample_size = 50 //how many axons each GC sample from
+number_of_input=25 //each axon produce 75 inputs that are distributed in time
+Activeaxon_number=1400//total number of active axons
+
+
+xopen("GC_BC_template_240520.hoc")
+xopen("Input_gen_single_240110.hoc")
+
+
+
+
+scale_factor = 0.1 //the scale factor for EPSGs in both BCs and GCs
+
+print "GC_connection_Poisson_excitation_240520_mpi.hoc"
+xopen("GC_connection_Poisson_excitation_240520_mpi.hoc")
+
+print "load BC_excitatory_connection_240520_mpi.hoc"
+xopen("BC_excitatory_connection_240520_mpi.hoc")
+
+print "load BC-GC_inhibitory_synapse_240520.hoc"
+xopen("BC-GC_inhibitory_synapse_240520.hoc")
+changeBC_synapse_weight(GC_IPSG_weight*10)
+
+print "load_RegisterAPs.hoc"
+xopen("RegisterAPs.hoc")
+
+print "load simulate.hoc"
+xopen("simulate.hoc")
+
+print "load Record_GC_BC_Vm_240426.hoc"
+xopen ("Record_GC_BC_Vm_240426.hoc")
+
+
+for a100=0, BC_number-1{access BC[a100].soma
+					    
+						e_pas=-51
+						g_pas= 1/20000  //based on the time constant of Iulia's measurement 240124
+						//diam= 5.6419*1.4 //Adjust so that the input resistance of the interneuron is appriximal one third of that of the excitatory cell
+						//L=5.6419*1.4
+						}
+
+make_output_raster_for_origin()
+
+//run the simulation with FFI
+RegisterAP()
+simulate()
+
+objref IO
+IO=new File()
+
+IO.wopen("FFI_IN_AP_time_1400axons.txt")
+for a=0, BC_number-1 {for b=0, BCAP_time[a].size-1 {IO.printf("%g%s%f\n", a, " ", BCAP_time[a].x[b])}}
+IO.close()
+
+IO.wopen("FFI_PN_AP_time_1400axons.txt")
+for a=0, GC_number-1 {for b=0, GCAP_time[a].size-1 {IO.printf("%g%s%f\n", a, " ", GCAP_time[a].x[b])}}
+IO.close()
+
+writeGCVm(1400)
+writeBCVm(1400)
+
+
+access BC[50].soma
+print L
+print diam
+print 1/g_pas
+
+PC.done()
+
+quit()
